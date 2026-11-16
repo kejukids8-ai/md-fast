@@ -144,7 +144,39 @@ proto.del = function (src, t, n) {
   return _del.call(this, src, t, n);
 };
 
+const _url = proto.url;
+proto.url = function (src) {
+  // url's alternatives all start ^(?:mailto:|xmpp:|[hH]..|www.|email-local), so the first
+  // char must be an ASCII letter, digit, '.', '_' or '-'; the regex never matches otherwise.
+  const c = src.charCodeAt(0);
+  if (
+    !((c > 64 && c < 91) || (c > 96 && c < 123) || (c > 47 && c < 58) || c === 45 || c === 46 || c === 95)
+  )
+    return;
+  return _url.call(this, src);
+};
+
+const _autolink = proto.autolink;
+proto.autolink = function (src) {
+  if (src.charCodeAt(0) !== 60) return; // ^<scheme:|local@domain
+  return _autolink.call(this, src);
+};
+
+const _lheading = proto.lheading;
+proto.lheading = function (src) {
+  // lheading (Ge) accepts any run of non-blank lines followed by a {0,3}-indented = / -
+  // underline, so the only sound necessary condition is one anchored scan for
+  // "\n", up to 3 spaces, then = or - — far cheaper than running the backtracking
+  // regex blind on every src fed to it.
+  if (!LHEAD_HINT.test(src)) return;
+  return _lheading.call(this, src);
+};
+
 /** The HTML marked renders for `markdown`, with marked's defaults. */
 export function parse(markdown) {
   return marked.parse(markdown);
 }
+
+// One scan for "\n {0,3}[=-]" is exactly the necessary condition for lheading to match
+// (equivalent to testing every line's prefix).
+const LHEAD_HINT = /\n {0,3}[=-]/;
