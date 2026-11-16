@@ -61,7 +61,17 @@ const _list = proto.list;
 proto.list = function (e) {
   const c = e.charCodeAt(0);
   // bull: * + - or digit 1-9 followed by . or )
-  if (c !== 42 && c !== 43 && c !== 45 && (c < 49 || c > 57)) return;
+  if (c !== 42 && c !== 43 && c !== 45) {
+    if (c < 49 || c > 57) return;
+    // list regex needs ^( {0,3}\d{1,9}[.)])([ \t][^\n]*?)?(\n|$) — src starts at pos 0 here,
+    // so require: 1-9 digits then '.' or ')' then end/space/tab/newline. Exact necessary condition.
+    let i = 0;
+    while (i < 9 && e.charCodeAt(i) >= 48 && e.charCodeAt(i) <= 57) i++;
+    const c2 = e.charCodeAt(i);
+    if (c2 !== 46 && c2 !== 41) return; // . or )
+    const c3 = e.charCodeAt(i + 1);
+    if (!(c3 === 32 || c3 === 9 || c3 === 10 || Number.isNaN(c3))) return;
+  }
   return _list.call(this, e);
 };
 
