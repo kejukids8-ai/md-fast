@@ -59,18 +59,16 @@ proto.blockquote = function (e) {
 
 const _list = proto.list;
 proto.list = function (e) {
-  const c = e.charCodeAt(0);
-  // bull: * + - or digit 1-9 followed by . or )
+  // block list regex: ^( {0,3})(bull)([ \t][^\n]*?)?(?:\n|$) where bull = [*+-]|\d{1,9}[.)]
+  let i = 0;
+  while (i < 3 && e.charCodeAt(i) === 32) i++;
+  const c = e.charCodeAt(i);
   if (c !== 42 && c !== 43 && c !== 45) {
-    if (c < 49 || c > 57) return;
-    // list regex needs ^( {0,3}\d{1,9}[.)])([ \t][^\n]*?)?(\n|$) — src starts at pos 0 here,
-    // so require: 1-9 digits then '.' or ')' then end/space/tab/newline. Exact necessary condition.
-    let i = 0;
-    while (i < 9 && e.charCodeAt(i) >= 48 && e.charCodeAt(i) <= 57) i++;
-    const c2 = e.charCodeAt(i);
+    if (c < 48 || c > 57) return; // bull needs a digit here
+    let j = i;
+    while (j < i + 9 && e.charCodeAt(j) >= 48 && e.charCodeAt(j) <= 57) j++;
+    const c2 = e.charCodeAt(j);
     if (c2 !== 46 && c2 !== 41) return; // . or )
-    const c3 = e.charCodeAt(i + 1);
-    if (!(c3 === 32 || c3 === 9 || c3 === 10 || Number.isNaN(c3))) return;
   }
   return _list.call(this, e);
 };
@@ -93,14 +91,20 @@ proto.def = function (e) {
 
 const _lheading = proto.lheading;
 proto.lheading = function (e) {
-  // setext: line1 (non-empty), then a line starting (after <=3 spaces) with = or -
-  const nl = e.indexOf('\n');
-  if (nl < 1) return;
-  let i = nl + 1;
-  while (i < nl + 4 && e.charCodeAt(i) === 32) i++;
-  const c = e.charCodeAt(i);
-  if (c !== 61 && c !== 45) return;
-  return _lheading.call(this, e);
+  // lheading = Ge: ^(?!bull |fences|...)(line1)+\n {0,3}(=+|-+). The line1 body can contain
+  // anything (incl. list markers), so the only cheap necessary condition is: some line starts
+  // (after <=3 spaces) with = or -. First candidate is line 2, but the body repeats, so scan all.
+  let i = e.indexOf('\n');
+  if (i < 0) return;
+  const n = e.length;
+  for (;;) {
+    let j = i + 1, sp = 0;
+    while (sp < 3 && e.charCodeAt(j) === 32) { j++; sp++; }
+    const c = e.charCodeAt(j);
+    if (c === 61 || c === 45) return _lheading.call(this, e);
+    i = e.indexOf('\n', j);
+    if (i < 0) return;
+  }
 };
 
 // --- inline tokenizer guards (called from Lexer#inlineTokens in order) ---
