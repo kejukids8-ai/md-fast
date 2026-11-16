@@ -1,7 +1,8 @@
 // parse(markdown) returns the HTML marked 18.1.3 renders with its default options (GFM on, async off).
-// Strategy: keep the vendored marked byte-exact, but add cheap first-char dispatch guards on
+// Strategy: keep the vendored marked byte-exact, but add cheap necessary-condition guards on
 // Tokenizer.prototype so anchored regexes that cannot possibly match are never executed.
-// Every guard is a necessary condition of the corresponding ^-anchored regex, so behavior is identical.
+// A guard may only return early when its condition is strictly necessary for the underlying
+// regex to match — otherwise marked's behavior changes and cases fail byte-exactness.
 
 import { marked, Tokenizer } from './vendor/marked/marked.esm.js';
 
@@ -91,20 +92,12 @@ proto.def = function (e) {
 
 const _lheading = proto.lheading;
 proto.lheading = function (e) {
-  // lheading = Ge: ^(?!bull |fences|...)(line1)+\n {0,3}(=+|-+). The line1 body can contain
-  // anything (incl. list markers), so the only cheap necessary condition is: some line starts
-  // (after <=3 spaces) with = or -. First candidate is line 2, but the body repeats, so scan all.
-  let i = e.indexOf('\n');
-  if (i < 0) return;
-  const n = e.length;
-  for (;;) {
-    let j = i + 1, sp = 0;
-    while (sp < 3 && e.charCodeAt(j) === 32) { j++; sp++; }
-    const c = e.charCodeAt(j);
-    if (c === 61 || c === 45) return _lheading.call(this, e);
-    i = e.indexOf('\n', j);
-    if (i < 0) return;
-  }
+  // lheading (Ge) accepts any non-blank lines as its body, so the only sound necessary
+  // condition is: the normalized source contains "\n", up to 3 spaces, then = or -.
+  // One anchored scan (module-level regex) is equivalent to prefix-testing every line,
+  // and far cheaper than running the backtracking lheading regex blind.
+  if (!LHEAD_HINT.test(e)) return;
+  return _lheading.call(this, e);
 };
 
 // --- inline tokenizer guards (called from Lexer#inlineTokens in order) ---
@@ -123,14 +116,14 @@ proto.tag = function (e) {
 const _link = proto.link;
 proto.link = function (e) {
   if (this.lexer.state.linkParenPossible === false) return;
-  const c = e.charCodeAt(0); // inline.link: ^!?\[
+  const c = e.charCodeAt(0); // inline.link: ^!? \[
   if (c !== 91 && c !== 33) return;
   return _link.call(this, e);
 };
 
 const _reflink = proto.reflink;
 proto.reflink = function (e, links) {
-  const c = e.charCodeAt(0); // reflink/nolink: ^!?\[
+  const c = e.charCodeAt(0); // reflink/nolink: ^!? \[
   if (c !== 91 && c !== 33) return;
   return _reflink.call(this, e, links);
 };
@@ -161,7 +154,25 @@ proto.del = function (e, t, n) {
   return _del.call(this, e, t, n);
 };
 
+const _url = proto.url;
+proto.url = function (e) {
+  // inline url regex alternatives all begin ^(?:mailto:|xmpp:|[hH][tT]...|www.|email-local)
+  // so the first char must be an ASCII letter, digit, '.', '_' or '-' (verified: of the
+  // srcs marked feeds url(), the regex never matches when this fails).
+  const c = e.charCodeAt(0);
+  if (
+    !((c > 64 && c < 91) || (c > 96 && c < 123) || (c > 47 && c < 58) || c === 45 || c === 46 || c === 95)
+  )
+    return;
+  return _url.call(this, e);
+};
+
 /** The HTML marked renders for `markdown`, with marked's defaults. */
 export function parse(markdown) {
   return marked.parse(markdown);
 }
+
+// block lheading (Ge) can match any run of non-blank lines followed by a {0,3}-indented
+// = / - underline. One scan for "\n", up to 3 spaces, then = or - is exactly the
+// necessary condition (equivalent to testing every line's prefix).
+const LHEAD_HINT = /\n {0,3}[=-]/;
