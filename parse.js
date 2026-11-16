@@ -150,7 +150,7 @@ proto.br = function (e) {
 
 const _del = proto.del;
 proto.del = function (e, t, n) {
-  if (e.charCodeAt(0) !== 126) return; // ~
+  if (e.charCodeAt(0) !== 126) return; // delLDelim: ^~~?...
   return _del.call(this, e, t, n);
 };
 
@@ -165,6 +165,12 @@ proto.url = function (e) {
   )
     return;
   return _url.call(this, e);
+};
+
+const _autolink = proto.autolink;
+proto.autolink = function (e) {
+  if (e.charCodeAt(0) !== 60) return; // ^<([a-zA-Z]...:|local@domain)
+  return _autolink.call(this, e);
 };
 
 /** The HTML marked renders for `markdown`, with marked's defaults. */
