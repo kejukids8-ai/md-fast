@@ -6,7 +6,7 @@ EXP=/home/agentuser/makefun/kit/markdown-render-speed-02-kit/practice/reference/
 cat > /tmp/bA.ts <<'EOT'
 import { readFileSync } from 'node:fs';
 const cases = JSON.parse(readFileSync(process.env.MF_CASES!, 'utf8')) as {id:string;markdown:string}[];
-const { marked } = await import('/home/agentuser/makefun/md-fast/vendor/marked/marked.esm.js');
+const { marked } = await import('/home/agentuser/makefun/kit/markdown-render-speed-02-kit/baselines/vendor/marked/marked.esm.js');
 for (const c of cases) marked.parse(c.markdown);
 const c0 = process.cpuUsage();
 for (let r=0;r<3;r++) for(const c of cases) marked.parse(c.markdown);
