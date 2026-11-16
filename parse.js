@@ -88,6 +88,62 @@ proto.def = function (src) {
   return _def.call(this, src);
 };
 
+// --- inline tokenizer guards (Lexer#inlineTokens order) ---
+
+const _escape = proto.escape;
+proto.escape = function (src) {
+  if (src.charCodeAt(0) !== 92) return; // backslash
+  return _escape.call(this, src);
+};
+
+const _tag = proto.tag;
+proto.tag = function (src) {
+  if (src.charCodeAt(0) !== 60) return; // <
+  return _tag.call(this, src);
+};
+
+const _link = proto.link;
+proto.link = function (src) {
+  // inline.link: ^!? \[ — also skip when no link-ref-def can follow (lexer flag)
+  if (this.lexer.state.linkParenPossible === false) return;
+  const c = src.charCodeAt(0);
+  if (c !== 91 && c !== 33) return; // [ or !
+  return _link.call(this, src);
+};
+
+const _reflink = proto.reflink;
+proto.reflink = function (src, links) {
+  const c = src.charCodeAt(0); // reflink/nolink: ^!? \[
+  if (c !== 91 && c !== 33) return;
+  return _reflink.call(this, src, links);
+};
+
+const _emStrong = proto.emStrong;
+proto.emStrong = function (src, maskedSrc, prevChar) {
+  const c = src.charCodeAt(0); // ^\*+... or ^_+...
+  if (c !== 42 && c !== 95) return;
+  return _emStrong.call(this, src, maskedSrc, prevChar);
+};
+
+const _codespan = proto.codespan;
+proto.codespan = function (src) {
+  if (src.charCodeAt(0) !== 96) return; // backtick
+  return _codespan.call(this, src);
+};
+
+const _br = proto.br;
+proto.br = function (src) {
+  const c = src.charCodeAt(0); // ^( {2,}|\\)\n
+  if (c !== 32 && c !== 92) return;
+  return _br.call(this, src);
+};
+
+const _del = proto.del;
+proto.del = function (src, t, n) {
+  if (src.charCodeAt(0) !== 126) return; // ~~~?...
+  return _del.call(this, src, t, n);
+};
+
 /** The HTML marked renders for `markdown`, with marked's defaults. */
 export function parse(markdown) {
   return marked.parse(markdown);
