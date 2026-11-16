@@ -1,7 +1,0 @@
-{
-  "name": "md-fast",
-  "version": "1.0.0",
-  "type": "module",
-  "private": true,
-  "main": "main.ts"
-}
